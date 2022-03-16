@@ -1,11 +1,9 @@
 package main
 
 import (
-  "fmt"
-  "errors"
+	"errors"
+	"fmt"
 )
-
-
 
 // -----------------------------------------------------------------------------
 
@@ -15,8 +13,8 @@ type Pair[U, V any] struct {
 }
 
 type Graph_[NodeType comparable, LabelType any] struct {
-	Nodes map[NodeType]bool
-    Edges map[Pair[NodeType, NodeType]]bool
+	Nodes  map[NodeType]bool
+	Edges  map[Pair[NodeType, NodeType]]bool
 	Labels map[Pair[NodeType, NodeType]]LabelType // would make more sense to have a single map
 	// (less errors by construction, optimisation, etc.).
 	// BUT there the conceptual design is clearer AND labels can be nil
@@ -25,7 +23,7 @@ type Graph_[NodeType comparable, LabelType any] struct {
 
 func New_[NodeType comparable, LabelType any]() *Graph_[NodeType, LabelType] {
 	graph := new(Graph_[NodeType, LabelType])
-    graph.Nodes = map[NodeType]bool{}
+	graph.Nodes = map[NodeType]bool{}
 	graph.Edges = map[Pair[NodeType, NodeType]]bool{}
 	graph.Labels = map[Pair[NodeType, NodeType]]LabelType{}
 	return graph
@@ -56,7 +54,7 @@ func (graph *Graph_[N, L]) PathTo(source, destination N) ([]N, error) {
 
 // -----------------------------------------------------------------------------
 
-type Node = int 
+type Node = int
 type Edge = Pair[Node, Node]
 type Label = string
 type Graph = Graph_[Node, Label]
@@ -70,9 +68,9 @@ func main() {
 	// fmt.Printf("%T\n", graph)
 	// fmt.Printf("%#v %#v %#v\n", graph.Nodes, graph.Edges, graph.Labels)
 	//fmt.Println(graph.Nodes == nil)
-    graph.AddNode(1, 2, 3)
+	graph.AddNode(1, 2, 3)
 	graph.AddEdge(Edge{1, 2}, Edge{2, 3})
-    fmt.Println(graph)
+	fmt.Println(graph)
 	_, err := graph.PathTo(1, 2)
 	if err != nil {
 		panic(err)
