@@ -59,9 +59,10 @@ type Edge = Pair[Node, Node]
 type Label = string
 type Graph = Graph_[Node, Label]
 
-func New() *Graph { // no way to do this without an extra function call?
-	return New_[Node, Label]()
-}
+// func New() *Graph { // no way to do this without an extra function call?
+// 	return New_[Node, Label]()
+// }
+var New func() *Graph = New_[Node, Label]
 
 func main() {
 	graph := New()
