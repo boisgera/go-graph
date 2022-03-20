@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // -----------------------------------------------------------------------------
@@ -122,14 +123,15 @@ var New func() *Graph = New_[Node, Label]
 func NewDenseMaze(width, height int) *Graph {
 	maze := New()
 	nodes := map[Node]bool{}
-	for i := 0; i < height; i++ {
-		for j := 0; j < width; j++ {
+	maze.Nodes = nodes
+	for i := 0; i < width; i++ {
+		for j := 0; j < height; j++ {
 			nodes[Node{i, j}] = true
 		}
 	}
 	todo := map[Node]bool{{0, 0}: true}
 	done := map[Node]bool{}
-LOOP:
+
 	for {
 		node, err := pop(todo)
 		if err != nil { // todo is empty, job done! 🥳
@@ -148,48 +150,77 @@ LOOP:
 			for n := range neighbors {
 				if nodes[n] && !done[n] && !todo[n] {
 					maze.AddEdge(Edge{node, n}, Edge{n, node})
-					// TODO: clean-up
-					continue LOOP
+					todo[n] = true
 				}
 			}
-			// No neighbor was suitable here; need some clean-up and
-			// continue the loop
-
+			done[node] = true
+			delete(todo, node)
 		}
 	}
 }
 
-// def dense_maze(width, height):
-//     random.seed(0)
-//     vertices = {(i, j) for i in range(width) for j in range(height)}
-//     edges = set()
-//     todo = {(0, 0)}  # visited but some neighbors not tested yet,
-//     done = set()     # all neighbors have been tested.
-//     while todo:
-//         i, j = current = random.choice(list(todo))
-//         neighbors = {(i + k, j + l) for k, l in [(1, 0), (0, 1), (-1, 0), (0, -1)]}
-//         # neighbors in the maze and not explored yet
-//         candidates = (neighbors & vertices) - done - todo
-//         if candidates:
-//             new = random.choice(list(candidates))
-//             edges.add((current, new))
-//             edges.add((new, current))  # both directions are allowed
-//             todo.add(new)
-//         if len(candidates) <= 1:
-//             todo.remove(current)
-//             done.add(current)
-//     weights = {edge: 1.0 for edge in edges}
-//     return vertices, edges, weights
+type Points map[[2]int]bool // well, we would need to use that in our structure ...
+// Just to please JSON. I'd rather make my own json serializer ATM.
+
+func (points Points) MarshalJSON() ([]byte, error) {
+	var bytes []byte
+	bytes = append(bytes, '[')
+	for point := range points {
+		str := fmt.Sprintf("[%d, %d]", point[0], point[1])
+		bytes = append(bytes, []byte(str)...)
+	}
+	bytes = append(bytes, ']')
+	return bytes, nil
+}
+
+func toJSON(graph *Graph) string {
+	var buffer []string
+
+	buffer = append(buffer, "{nodes: ")
+	buffer = append(buffer, "[")
+	for node := range graph.Nodes {
+		s := fmt.Sprintf("[%d, %d],", node[0], node[1])
+		buffer = append(buffer, s)
+	}
+	// Remove the trailing comma.
+	last := buffer[len(buffer)-1]
+	buffer[len(buffer)-1] = last[:len(last)-2]
+	buffer = append(buffer, "],")
+
+	buffer = append(buffer, " edges: ")
+	for edge := range graph.Edges {
+		source := edge.Source
+		target := edge.Target
+		s := fmt.Sprintf(
+			"[[%d, %d], [%d, %d]],",
+			source[0],
+			source[1],
+			target[0],
+			target[1],
+		)
+		buffer = append(buffer, s)
+	}
+	// Remove the trailing comma.
+	last = buffer[len(buffer)-1]
+	buffer[len(buffer)-1] = last[:len(last)-2]
+
+	buffer = append(buffer, "]")
+	buffer = append(buffer, "}")
+
+	return strings.Join(buffer, "")
+
+}
 
 func main() {
-	graph := New()
-	// fmt.Printf("%T\n", graph)
-	// fmt.Printf("%#v %#v %#v\n", graph.Nodes, graph.Edges, graph.Labels)
-	//fmt.Println(graph.Nodes == nil)
-	graph.AddNode(Node{0, 0}, Node{1, 0}, Node{1, 1})
-	graph.AddEdge(Edge{Node{0, 0}, Node{0, 1}}, Edge{Node{0, 1}, Node{1, 1}})
-	fmt.Println(graph)
-	path := graph.PathTo(Node{0, 0}, Node{1, 1})
-	fmt.Println("path:", path)
+	// graph := New()
+	// graph.AddNode(Node{0, 0}, Node{1, 0}, Node{1, 1})
+	// graph.AddEdge(Edge{Node{0, 0}, Node{0, 1}}, Edge{Node{0, 1}, Node{1, 1}})
+	// fmt.Println(graph)
+	// path := graph.PathTo(Node{0, 0}, Node{1, 1})
+	// fmt.Println("path:", path)
 
+	// fmt.Println("--------------------------------------------------")
+	maze := NewDenseMaze(3, 1)
+	fmt.Println(maze)
+	fmt.Println(toJSON(maze))
 }
