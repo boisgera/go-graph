@@ -1,10 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"image/color"
-	"os"
 	"strings"
 
 	"github.com/llgcode/draw2d/draw2dsvg"
@@ -235,7 +236,26 @@ func max(ints ...int) int {
 	return m
 }
 
-func drawMaze(maze *Graph, width, height, widthMargin, heightMargin int, filename string) {
+func SvgToBytes(svg *draw2dsvg.Svg) []byte {
+	// f, err := os.Create(filePath)
+	// if err != nil {
+	// 	return err
+	// }
+	// defer f.Close()
+
+	var buffer bytes.Buffer
+
+	// create a file-like stuff instead that we can get a string from.
+
+	buffer.Write([]byte(xml.Header))
+	encoder := xml.NewEncoder(&buffer)
+	encoder.Indent("", "\t")
+	_ = encoder.Encode(svg)
+
+	return buffer.Bytes()
+}
+
+func drawMaze(maze *Graph, width, height, widthMargin, heightMargin int, filename string) []byte {
 	// Initialize the graphic context on an RGBA image
 
 	scale := 10
@@ -317,7 +337,8 @@ func drawMaze(maze *Graph, width, height, widthMargin, heightMargin int, filenam
 	}
 
 	// Save to file
-	draw2dsvg.SaveToSvgFile(filename, svg)
+	//draw2dsvg.SaveToSvgFile(filename, svg)
+	return SvgToBytes(svg)
 }
 
 func main() {
@@ -332,43 +353,20 @@ func main() {
 	width, height := 40, 30
 	maze := NewDenseMaze(width, height)
 	fmt.Println(maze)
-	JSONString := toJSON(maze)
 
 	// -----------------------------------------------------------------
-	file, err := os.Create(fmt.Sprintf("maze-%dx%d.json", width, height))
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
-	file.Write([]byte(JSONString))
+	// JSONString := toJSON(maze)
+	// file, err := os.Create(fmt.Sprintf("maze-%dx%d.json", width, height))
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// defer file.Close()
+	// file.Write([]byte(JSONString))
 
 	// -----------------------------------------------------------------------
 	fmt.Println("--------------------------------------------------------------")
-	drawMaze(maze, width, height, 1, 1, fmt.Sprintf("maze-%dx%d.svg", width, height))
-}
+	bytes := drawMaze(maze, width, height, 1, 1, fmt.Sprintf("maze-%dx%d.svg", width, height))
+	fmt.Println(string(bytes))
 
-func _main() {
-	// Initialize the graphic context on an RGBA image
-	svg := draw2dsvg.NewSvg()
-	svg.Width = "640"
-	svg.Height = "400"
-	svg.ViewBox = "0 0 640 400"
-
-	gc := draw2dsvg.NewGraphicContext(svg)
-
-	// Set some properties
-	gc.SetFillColor(color.RGBA{0x44, 0xff, 0x44, 0xff})
-	gc.SetStrokeColor(color.RGBA{0x44, 0x44, 0x44, 0xff})
-	gc.SetLineWidth(5)
-
-	// Draw a closed shape
-	gc.BeginPath()    // Initialize a new path
-	gc.MoveTo(10, 10) // Move to a position to start the new path
-	gc.LineTo(100, 50)
-	gc.QuadCurveTo(100, 10, 10, 10)
-	gc.Close()
-	gc.FillStroke()
-
-	// Save to file
-	draw2dsvg.SaveToSvgFile("hello.svg", svg)
+	<-make(chan int)
 }
