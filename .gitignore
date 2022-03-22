@@ -1,2 +1,6 @@
 # Go Binaries
 graph
+
+# Generated Mazes
+*.json
+*.svg

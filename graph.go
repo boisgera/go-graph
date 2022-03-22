@@ -3,7 +3,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"image/color"
+	"os"
 	"strings"
+
+	"github.com/llgcode/draw2d/draw2dsvg"
 )
 
 // -----------------------------------------------------------------------------
@@ -176,7 +180,7 @@ func (points Points) MarshalJSON() ([]byte, error) {
 func toJSON(graph *Graph) string {
 	var buffer []string
 
-	buffer = append(buffer, "{nodes: ")
+	buffer = append(buffer, `{"nodes": `)
 	buffer = append(buffer, "[")
 	for node := range graph.Nodes {
 		s := fmt.Sprintf("[%d, %d],", node[0], node[1])
@@ -184,10 +188,10 @@ func toJSON(graph *Graph) string {
 	}
 	// Remove the trailing comma.
 	last := buffer[len(buffer)-1]
-	buffer[len(buffer)-1] = last[:len(last)-2]
+	buffer[len(buffer)-1] = last[:len(last)-1]
 	buffer = append(buffer, "],")
 
-	buffer = append(buffer, " edges: ")
+	buffer = append(buffer, ` "edges": [`)
 	for edge := range graph.Edges {
 		source := edge.Source
 		target := edge.Target
@@ -202,13 +206,118 @@ func toJSON(graph *Graph) string {
 	}
 	// Remove the trailing comma.
 	last = buffer[len(buffer)-1]
-	buffer[len(buffer)-1] = last[:len(last)-2]
+	buffer[len(buffer)-1] = last[:len(last)-1]
 
 	buffer = append(buffer, "]")
 	buffer = append(buffer, "}")
 
 	return strings.Join(buffer, "")
 
+}
+
+func min(ints ...int) int {
+	m := ints[0]
+	for _, i := range ints {
+		if i < m {
+			m = i
+		}
+	}
+	return m
+}
+
+func max(ints ...int) int {
+	m := ints[0]
+	for _, i := range ints {
+		if i > m {
+			m = i
+		}
+	}
+	return m
+}
+
+func drawMaze(maze *Graph, width, height, widthMargin, heightMargin int, filename string) {
+	// Initialize the graphic context on an RGBA image
+
+	scale := 10
+
+	svg := draw2dsvg.NewSvg()
+	svg.Width = fmt.Sprintf("%d", width*scale)
+	svg.Height = fmt.Sprintf("%d", height*scale)
+	svg.ViewBox = fmt.Sprintf("0 0 %d %d", width*scale, height*scale)
+
+	nodes := maze.Nodes
+	is := make([]int, len(nodes))
+	js := make([]int, len(nodes))
+	k := 0
+	for node := range nodes {
+		is[k] = node[0]
+		js[k] = node[1]
+		k += 1
+	}
+	iMin := min(is...)
+	iMax := max(is...) + 1
+	jMin := min(js...)
+	jMax := max(js...) + 1
+	println(iMin, iMax, jMin, jMax)
+
+	dx := float64(width-2*widthMargin) / float64(iMax-iMin) * float64(scale)
+	dy := float64(height-2*heightMargin) / float64(jMax-jMin) * float64(scale)
+
+	xy := func(i, j int) (float64, float64) { // return the lower cell corner
+		return float64(i)*dx + float64(widthMargin*scale), float64(j)*dy + float64(heightMargin*scale)
+	}
+
+	c := draw2dsvg.NewGraphicContext(svg)
+
+	// Set some properties
+	//c.SetFillColor(color.RGBA{0x44, 0xff, 0x44, 0xff})
+	c.SetStrokeColor(color.RGBA{0x00, 0x00, 0x00, 0xff})
+	c.SetLineWidth(1)
+
+	edges := maze.Edges
+	for node := range nodes {
+		i := node[0]
+		j := node[1]
+		x, y := xy(i, j)
+		if !edges[Edge{[2]int{i, j}, [2]int{i, j - 1}}] {
+			c.BeginPath()  // Initialize a new path
+			c.MoveTo(x, y) // Move to a position to start the new path
+			c.LineTo(x+dx, y)
+			c.Close()
+			c.FillStroke()
+		}
+		if !edges[Edge{[2]int{i, j}, [2]int{i + 1, j}}] {
+			c.BeginPath()     // Initialize a new path
+			c.MoveTo(x+dx, y) // Move to a position to start the new path
+			c.LineTo(x+dx, y+dy)
+			c.Close()
+			c.FillStroke()
+		}
+		if !edges[Edge{[2]int{i, j}, [2]int{i, j + 1}}] {
+			c.BeginPath()        // Initialize a new path
+			c.MoveTo(x+dx, y+dy) // Move to a position to start the new path
+			c.LineTo(x, y+dy)
+			c.Close()
+			c.FillStroke()
+		}
+		if !edges[Edge{[2]int{i, j}, [2]int{i - 1, j}}] {
+			c.BeginPath()     // Initialize a new path
+			c.MoveTo(x, y+dy) // Move to a position to start the new path
+			c.LineTo(x, y)
+			c.Close()
+			c.FillStroke()
+		}
+		// Draw a closed shape
+		// c.BeginPath()    // Initialize a new path
+		// c.MoveTo(10, 10) // Move to a position to start the new path
+		// c.LineTo(100, 50)
+		// c.QuadCurveTo(100, 10, 10, 10)
+		// c.Close()
+		// c.FillStroke()
+	}
+
+	// Save to file
+	draw2dsvg.SaveToSvgFile(filename, svg)
 }
 
 func main() {
@@ -220,7 +329,46 @@ func main() {
 	// fmt.Println("path:", path)
 
 	// fmt.Println("--------------------------------------------------")
-	maze := NewDenseMaze(3, 1)
+	width, height := 40, 30
+	maze := NewDenseMaze(width, height)
 	fmt.Println(maze)
-	fmt.Println(toJSON(maze))
+	JSONString := toJSON(maze)
+
+	// -----------------------------------------------------------------
+	file, err := os.Create(fmt.Sprintf("maze-%dx%d.json", width, height))
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	file.Write([]byte(JSONString))
+
+	// -----------------------------------------------------------------------
+	fmt.Println("--------------------------------------------------------------")
+	drawMaze(maze, width, height, 1, 1, fmt.Sprintf("maze-%dx%d.svg", width, height))
+}
+
+func _main() {
+	// Initialize the graphic context on an RGBA image
+	svg := draw2dsvg.NewSvg()
+	svg.Width = "640"
+	svg.Height = "400"
+	svg.ViewBox = "0 0 640 400"
+
+	gc := draw2dsvg.NewGraphicContext(svg)
+
+	// Set some properties
+	gc.SetFillColor(color.RGBA{0x44, 0xff, 0x44, 0xff})
+	gc.SetStrokeColor(color.RGBA{0x44, 0x44, 0x44, 0xff})
+	gc.SetLineWidth(5)
+
+	// Draw a closed shape
+	gc.BeginPath()    // Initialize a new path
+	gc.MoveTo(10, 10) // Move to a position to start the new path
+	gc.LineTo(100, 50)
+	gc.QuadCurveTo(100, 10, 10, 10)
+	gc.Close()
+	gc.FillStroke()
+
+	// Save to file
+	draw2dsvg.SaveToSvgFile("hello.svg", svg)
 }
